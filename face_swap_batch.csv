@@ -1,0 +1,4 @@
+face_image,target_image,output
+/Users/kcwis/Sites/vision_apps/swapface.app/input/image1.jpg,/Users/kcwis/Sites/vision_apps/swapface.app/target/target1.jpg,/Users/kcwis/Sites/vision_apps/swapface.app/output/result1.jpg
+/Users/kcwis/Sites/vision_apps/swapface.app/input/image2.jpg,/Users/kcwis/Sites/vision_apps/swapface.app/target/target2.jpg,/Users/kcwis/Sites/vision_apps/swapface.app/output/result2.jpg
+/Users/kcwis/Sites/vision_apps/swapface.app/input/image3.jpg,/Users/kcwis/Sites/vision_apps/swapface.app/target/target3.jpg,/Users/kcwis/Sites/vision_apps/swapface.app/output/result3.jpg

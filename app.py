@@ -83,6 +83,45 @@ def resize_image_for_display(image, max_width=280, max_height=350):
         return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
     return image
 
+def download_model_if_needed():
+    """Download the inswapper model if not present"""
+    model_path = os.path.join(os.path.expanduser('~'), '.insightface', 'models', 'inswapper_128.onnx')
+    
+    if not os.path.exists(model_path):
+        st.info("🔄 Downloading face swap model (one-time, ~554MB)... This may take a few minutes.")
+        try:
+            import urllib.request
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            
+            # Try multiple mirrors
+            mirrors = [
+                'https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx',
+                'https://huggingface.co/Aitrepreneur/insightface/resolve/main/inswapper_128.onnx'
+            ]
+            
+            for mirror in mirrors:
+                try:
+                    urllib.request.urlretrieve(mirror, model_path)
+                    st.success("✅ Model downloaded successfully!")
+                    return model_path
+                except:
+                    continue
+            
+            st.error("""
+            ❌ Automatic download failed. Please manually download:
+            
+            1. Go to: https://huggingface.co/ezioruan/inswapper_128.onnx
+            2. Click 'Files and versions'
+            3. Download 'inswapper_128.onnx'
+            4. Place it in: ~/.insightface/models/ (Mac/Linux) or %USERPROFILE%\\.insightface\\models\\ (Windows)
+            """)
+            return None
+        except Exception as e:
+            st.error(f"Download error: {str(e)}")
+            return None
+    
+    return model_path
+
 def perform_face_swap(face_image, target_image):
     """Perform face swap using InsightFace"""
     try:
@@ -109,24 +148,12 @@ def perform_face_swap(face_image, target_image):
         # Get the face to swap (source face)
         source_face = face_faces[0]
         
-        # Initialize the swapper model with alternative download
-        import os
-        model_path = os.path.join(os.path.expanduser('~'), '.insightface', 'models', 'inswapper_128.onnx')
+        # Download model if needed and get path
+        model_path = download_model_if_needed()
+        if model_path is None:
+            return None
         
-        if not os.path.exists(model_path):
-            # Try to download from Hugging Face
-            import urllib.request
-            os.makedirs(os.path.dirname(model_path), exist_ok=True)
-            st.info("Downloading face swap model... This is a one-time download (~554MB)")
-            try:
-                urllib.request.urlretrieve(
-                    'https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx',
-                    model_path
-                )
-            except Exception as e:
-                st.error(f"Download failed. Please manually download from: https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx")
-                return None
-        
+        # Initialize the swapper model
         swapper = insightface.model_zoo.get_model(model_path, download=False)
         
         # Perform face swap on all faces in target image
@@ -154,16 +181,35 @@ def main():
         st.markdown("### 📸 Face Photo")
         
         # Option to use camera or upload
-        capture_method = st.radio("Choose input method:", ("Camera Capture", "Upload Image"), key="face_method")
+        capture_method = st.radio("Choose input method:", ("Upload Image", "Camera Capture"), key="face_method")
         
         if capture_method == "Camera Capture":
-            camera_image = st.camera_input("Take a picture", key="camera_input")
+            # Add a button to enable camera
+            if 'camera_enabled' not in st.session_state:
+                st.session_state.camera_enabled = False
             
-            if camera_image is not None:
-                st.session_state.face_image = Image.open(camera_image)
-                resized_face = resize_image_for_display(st.session_state.face_image)
-                st.image(resized_face, use_container_width=False)
+            if not st.session_state.camera_enabled:
+                if st.button("📷 Enable Camera", key="enable_camera_btn"):
+                    st.session_state.camera_enabled = True
+                    st.rerun()
+            
+            if st.session_state.camera_enabled:
+                camera_image = st.camera_input("Take a picture", key="camera_input")
+                
+                if camera_image is not None:
+                    st.session_state.face_image = Image.open(camera_image)
+                    resized_face = resize_image_for_display(st.session_state.face_image)
+                    st.image(resized_face, use_container_width=False)
+                    
+                    # Add button to disable camera
+                    if st.button("✖️ Close Camera", key="close_camera_btn"):
+                        st.session_state.camera_enabled = False
+                        st.rerun()
         else:
+            # Reset camera state when switching to upload
+            if 'camera_enabled' in st.session_state:
+                st.session_state.camera_enabled = False
+            
             uploaded_face = st.file_uploader("Upload face image", type=['png', 'jpg', 'jpeg'], key="face_upload")
             
             if uploaded_face is not None:
